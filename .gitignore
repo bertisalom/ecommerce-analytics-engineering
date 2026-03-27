@@ -13,6 +13,7 @@ htmlcov/
 .terraform.lock.hcl
 *.tfstate
 *.tfstate.*
+*.tfvars
 dbt_packages/
 logs/
 target/
