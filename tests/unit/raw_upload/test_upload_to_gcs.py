@@ -8,7 +8,7 @@ from raw_upload.validation import validate_file
 
 
 def test_load_contracts_includes_orders_contract() -> None:
-    contracts = load_contracts(Path("raw_upload/file_contracts.yaml"))
+    contracts = load_contracts(Path("cloud_run/ingestion/schema_contracts.yaml"))
     orders_contract = next(contract for contract in contracts if contract.file_name == "orders.csv")
 
     assert orders_contract.target_table == "orders"

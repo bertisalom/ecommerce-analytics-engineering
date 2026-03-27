@@ -10,7 +10,7 @@ from raw_upload.validation import validate_file
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data" / "raw"
-CONTRACTS_PATH = PROJECT_ROOT / "raw_upload" / "file_contracts.yaml"
+CONTRACTS_PATH = PROJECT_ROOT / "cloud_run" / "ingestion" / "schema_contracts.yaml"
 
 logger = logging.getLogger(__name__)
 
