@@ -1,0 +1,95 @@
+files:
+  - file_name: category_translation.csv
+    target_table: category_translation
+    columns:
+      - name: product_category_name
+        type: STRING
+      - name: product_category_name_english
+        type: STRING
+  - file_name: customers.csv
+    target_table: customers
+    columns:
+      - name: customer_id
+        type: STRING
+      - name: customer_unique_id
+        type: STRING
+      - name: customer_zip_code_prefix
+        type: STRING
+      - name: customer_city
+        type: STRING
+      - name: customer_state
+        type: STRING
+  - file_name: order_items.csv
+    target_table: order_items
+    columns:
+      - name: order_id
+        type: STRING
+      - name: order_item_id
+        type: INT64
+      - name: product_id
+        type: STRING
+      - name: seller_id
+        type: STRING
+      - name: shipping_limit_date
+        type: TIMESTAMP
+      - name: price
+        type: NUMERIC
+      - name: freight_value
+        type: NUMERIC
+  - file_name: orders.csv
+    target_table: orders
+    columns:
+      - name: order_id
+        type: STRING
+      - name: customer_id
+        type: STRING
+      - name: order_status
+        type: STRING
+      - name: order_purchase_timestamp
+        type: TIMESTAMP
+      - name: order_approved_at
+        type: TIMESTAMP
+      - name: order_delivered_carrier_date
+        type: TIMESTAMP
+      - name: order_delivered_customer_date
+        type: TIMESTAMP
+      - name: order_estimated_delivery_date
+        type: TIMESTAMP
+  - file_name: products.csv
+    target_table: products
+    columns:
+      - name: product_id
+        type: STRING
+      - name: product_category_name
+        type: STRING
+      - name: product_name_lenght
+        type: INT64
+      - name: product_description_lenght
+        type: INT64
+      - name: product_photos_qty
+        type: INT64
+      - name: product_weight_g
+        type: INT64
+      - name: product_length_cm
+        type: INT64
+      - name: product_height_cm
+        type: INT64
+      - name: product_width_cm
+        type: INT64
+  - file_name: reviews.csv
+    target_table: reviews
+    columns:
+      - name: review_id
+        type: STRING
+      - name: order_id
+        type: STRING
+      - name: review_score
+        type: INT64
+      - name: review_comment_title
+        type: STRING
+      - name: review_comment_message
+        type: STRING
+      - name: review_creation_date
+        type: TIMESTAMP
+      - name: review_answer_timestamp
+        type: TIMESTAMP
