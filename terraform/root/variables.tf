@@ -54,3 +54,32 @@ variable "dbt_service_account_id" {
   type        = string
   default     = "dbt"
 }
+
+variable "ingestion_job_name" {
+  description = "Cloud Run job name for the ingestion workload."
+  type        = string
+  default     = "ingestion-job"
+}
+
+variable "ingestion_image_name" {
+  description = "Artifact Registry image name for ingestion."
+  type        = string
+  default     = "ingestion"
+}
+
+variable "ingestion_image_tag" {
+  description = "Artifact Registry image tag for ingestion."
+  type        = string
+}
+
+variable "ingestion_job_timeout" {
+  description = "Timeout for the ingestion Cloud Run job."
+  type        = string
+  default     = "600s"
+}
+
+variable "ingestion_job_max_retries" {
+  description = "Maximum retries for the ingestion Cloud Run job."
+  type        = number
+  default     = 0
+}
