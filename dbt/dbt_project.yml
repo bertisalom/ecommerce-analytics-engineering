@@ -1,0 +1,33 @@
+name: ecommerce_analytics
+version: 1.0.0
+config-version: 2
+
+profile: ecommerce_analytics
+
+model-paths:
+  - models
+macro-paths:
+  - macros
+test-paths:
+  - tests
+seed-paths:
+  - seeds
+snapshot-paths:
+  - snapshots
+
+clean-targets:
+  - target
+  - dbt_packages
+  - logs
+
+models:
+  ecommerce_analytics:
+    staging:
+      +schema: stg
+      +materialized: table
+    intermediate:
+      +schema: int
+      +materialized: table
+    marts:
+      +schema: mart
+      +materialized: table

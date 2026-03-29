@@ -17,4 +17,6 @@ htmlcov/
 dbt_packages/
 logs/
 target/
+dbt/.user.yml
 docs/
+profiles.yml

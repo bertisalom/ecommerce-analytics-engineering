@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Append-only raw ingestion tables loaded from GCS into BigQuery by the
+      ingestion Cloud Run job. Reruns are expected to create duplicate business
+      records, so downstream dbt staging models select the latest ingested
+      version per business key.
+    database: "{{ env_var('GCP_PROJECT_ID', target.project) }}"
+    schema: raw
+    tables:
+      - name: orders
+        description: Raw orders source with ingestion metadata.
+      - name: order_items
+        description: Raw order items source with ingestion metadata.
+      - name: reviews
+        description: Raw order reviews source with ingestion metadata.
+      - name: customers
+        description: Raw customers source with ingestion metadata.
+      - name: products
+        description: Raw products source with ingestion metadata.
+      - name: category_translation
+        description: Raw product category translation source with ingestion metadata.
