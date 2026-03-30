@@ -1,0 +1,105 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: Cleaned and deduplicated order records at one row per order.
+    columns:
+      - name: order_id
+        description: Primary key for the order.
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Foreign key to the customer who placed the order.
+        tests:
+          - not_null
+
+  - name: stg_order_items
+    description: Cleaned and deduplicated order line items at item grain.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        description: Order identifier for the line item.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: order_item_id
+        description: Line item number within the order.
+        tests:
+          - not_null
+      - name: product_id
+        description: Product identifier for the line item.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_products')
+                field: product_id
+
+  - name: stg_reviews
+    description: Cleaned and deduplicated order reviews at one row per review.
+    columns:
+      - name: review_id
+        description: Primary key for the review.
+        tests:
+          - unique
+          - not_null
+      - name: order_id
+        description: Order identifier associated with the review.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_orders')
+                field: order_id
+      - name: review_score
+        description: Customer rating score from 1 to 5.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+                inclusive: true
+
+  - name: stg_customers
+    description: Cleaned and deduplicated customers at one row per customer.
+    columns:
+      - name: customer_id
+        description: Primary key for the customer record.
+        tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: Stable identifier representing the underlying customer.
+        tests:
+          - not_null
+
+  - name: stg_products
+    description: Cleaned and deduplicated products with category mapping fields.
+    columns:
+      - name: product_id
+        description: Primary key for the product.
+        tests:
+          - unique
+          - not_null
+      - name: product_category_name
+        description: Original Portuguese product category name from the source products file.
+
+  - name: stg_category_translation
+    description: Cleaned and deduplicated category translation lookup table.
+    columns:
+      - name: product_category_name
+        description: Portuguese category name used in the source dataset.
+        tests:
+          - unique
+          - not_null
+      - name: product_category_name_english
+        description: English category name mapped from the Portuguese source category.
+        tests:
+          - not_null
