@@ -1,0 +1,98 @@
+version: 2
+
+models:
+  - name: int_orders_enriched
+    description: Reusable order-level fact model combining customer, delivery, review, and revenue attributes.
+    columns:
+      - name: order_id
+        description: Primary key for the enriched order record.
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Customer identifier from the original order.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_customers')
+                field: customer_id
+      - name: customer_unique_id
+        description: Stable customer identity used for lifecycle analysis.
+        tests:
+          - not_null
+      - name: order_purchase_date
+        description: Purchase date used for daily-level reporting and partitioning.
+        tests:
+          - not_null
+      - name: item_count
+        description: Number of order items associated with the order.
+        tests:
+          - not_null
+      - name: review_count
+        description: Number of reviews associated with the order.
+        tests:
+          - not_null
+      - name: has_order_low_review
+        description: Flag indicating the order has at least one low review.
+      - name: has_matching_review_item_count
+        description: Flag indicating the order has matching review and item counts.
+
+  - name: int_order_items_enriched
+    description: Reusable item-level model combining commercial metrics with product category attributes.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        description: Order identifier for the line item.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_orders_enriched')
+                field: order_id
+      - name: order_item_id
+        description: Line item number within the order.
+        tests:
+          - not_null
+      - name: product_id
+        description: Product identifier for the line item.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_products')
+                field: product_id
+      - name: order_purchase_date
+        description: Purchase date inherited from the parent order.
+        tests:
+          - not_null
+      - name: product_category_name_english
+        description: English category name brought forward for downstream product and category analysis.
+
+  - name: int_customer_order_history
+    description: Order-level customer history model labeling first and repeat purchase behavior.
+    columns:
+      - name: order_id
+        description: Primary key for the customer order history row.
+        tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('int_orders_enriched')
+                field: order_id
+      - name: customer_unique_id
+        description: Stable customer identity used to sequence purchases.
+        tests:
+          - not_null
+      - name: customer_order_number
+        description: Sequence number of the order for the customer.
+        tests:
+          - not_null
+      - name: is_first_order
+        description: Flag indicating whether the order is the customer's first observed order.
+      - name: is_repeat_order
+        description: Flag indicating whether the order occurs after the customer's first observed order.
