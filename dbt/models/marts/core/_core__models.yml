@@ -1,0 +1,115 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: Customer dimension at one row per business customer using customer_unique_id.
+    columns:
+      - name: customer_unique_id
+        description: Business customer key representing the underlying customer across orders.
+        tests:
+          - unique
+          - not_null
+      - name: first_order_date
+        description: First observed order date for the customer.
+        tests:
+          - not_null
+      - name: latest_order_date
+        description: Most recent observed order date for the customer.
+        tests:
+          - not_null
+      - name: lifetime_orders
+        description: Total number of observed orders for the customer.
+        tests:
+          - not_null
+      - name: customer_city
+        description: Most recent observed customer city for the business customer.
+      - name: customer_state
+        description: Most recent observed customer state for the business customer.
+
+  - name: dim_products
+    description: Product dimension sourced from cleaned product records and enriched with translated category attributes.
+    columns:
+      - name: product_id
+        description: Product business key.
+        tests:
+          - unique
+          - not_null
+      - name: product_category_name_english
+        description: English product category name from the category translation mapping.
+        tests:
+          - not_null:
+              config:
+                severity: warn
+
+  - name: fct_orders
+    description: Order-level fact table used for KPI, delivery, and customer analysis.
+    columns:
+      - name: order_id
+        description: Order business key at fact grain.
+        tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: Business customer key for the order.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customers')
+                field: customer_unique_id
+      - name: order_purchase_date
+        description: Order purchase date used for fact partitioning and reporting.
+        tests:
+          - not_null
+      - name: order_purchase_month_start
+        description: Order purchase month bucket represented by the first day of the month.
+        tests:
+          - not_null
+      - name: order_total_revenue
+        description: Total revenue for the order including item price and freight.
+        tests:
+          - not_null
+      - name: item_count
+        description: Number of item lines included in the order.
+        tests:
+          - not_null
+      - name: review_count
+        description: Number of reviews linked to the order.
+        tests:
+          - not_null
+      - name: has_matching_review_item_count
+        description: Flag indicating the order has equal counts of reviews and order items, used as a confidence rule for category review metrics.
+
+  - name: fct_order_items
+    description: Order-item-level fact table used for commercial and category analysis.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        description: Parent order identifier.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_orders')
+                field: order_id
+      - name: order_item_id
+        description: Line item identifier within the order.
+        tests:
+          - not_null
+      - name: product_id
+        description: Product business key for the line item.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: order_purchase_date
+        description: Parent order purchase date used for fact partitioning and reporting.
+        tests:
+          - not_null
+      - name: product_category_name_english
+        description: Canonical English product category label inherited from dim_products.
