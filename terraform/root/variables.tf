@@ -72,6 +72,23 @@ variable "ingestion_image_tag" {
   type        = string
 }
 
+variable "dbt_job_name" {
+  description = "Cloud Run job name for the dbt workload."
+  type        = string
+  default     = "dbt"
+}
+
+variable "dbt_image_name" {
+  description = "Artifact Registry image name for dbt."
+  type        = string
+  default     = "dbt"
+}
+
+variable "dbt_image_tag" {
+  description = "Artifact Registry image tag for dbt."
+  type        = string
+}
+
 variable "ingestion_job_timeout" {
   description = "Timeout for the ingestion Cloud Run job."
   type        = string
@@ -80,6 +97,18 @@ variable "ingestion_job_timeout" {
 
 variable "ingestion_job_max_retries" {
   description = "Maximum retries for the ingestion Cloud Run job."
+  type        = number
+  default     = 0
+}
+
+variable "dbt_job_timeout" {
+  description = "Timeout for the dbt Cloud Run job."
+  type        = string
+  default     = "600s"
+}
+
+variable "dbt_job_max_retries" {
+  description = "Maximum retries for the dbt Cloud Run job."
   type        = number
   default     = 0
 }
