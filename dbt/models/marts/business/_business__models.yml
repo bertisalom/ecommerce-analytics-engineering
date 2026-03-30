@@ -1,0 +1,163 @@
+version: 2
+
+models:
+  - name: mart_kpi_daily
+    description: Daily executive KPI mart tracking orders, revenue, delivery outcomes, and review trends.
+    columns:
+      - name: order_purchase_date
+        description: Daily reporting grain for the KPI view.
+        tests:
+          - unique
+          - not_null
+      - name: gross_revenue
+        description: Total order revenue for the reporting date.
+      - name: delivery_success_rate
+        description: Share of orders on the reporting date that were delivered.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+      - name: cancellation_rate
+        description: Share of orders on the reporting date that were canceled.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+
+  - name: mart_category_performance
+    description: Monthly category mart combining commercial performance with customer experience outcomes. Review-based metrics exclude orders where review and item counts do not align.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_purchase_month_start, category_name]
+    columns:
+      - name: order_purchase_month_start
+        description: Month-level reporting grain represented by the first day of the month.
+        tests:
+          - not_null
+      - name: category_name
+        description: English category name from the product dimension, with missing translations labeled as 'unknown'.
+        tests:
+          - not_null
+      - name: average_review_score
+        description: Average order-level review score for the subset of category orders where review and item counts match.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+                inclusive: true
+              config:
+                where: "average_review_score is not null"
+      - name: low_review_rate
+        description: Share of category orders with at least one low review within the subset where review and item counts match.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+              config:
+                where: "low_review_rate is not null"
+      - name: delayed_order_rate
+        description: Share of delivered category orders that were delayed.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+              config:
+                where: "delayed_order_rate is not null"
+
+  - name: mart_delivery_satisfaction
+    description: Monthly mart showing how delivery performance buckets relate to customer satisfaction.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_purchase_month_start, delivery_bucket]
+    columns:
+      - name: order_purchase_month_start
+        description: Month-level reporting grain represented by the first day of the month.
+        tests:
+          - not_null
+      - name: delivery_bucket
+        description: Delivery performance grouping used to compare satisfaction outcomes.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['not_delivered', 'early', 'on_time', 'slightly_delayed', 'heavily_delayed']
+      - name: low_review_rate
+        description: Share of orders in the delivery bucket with at least one low review.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+      - name: average_review_score
+        description: Average order-level review score within the delivery bucket.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+                inclusive: true
+              config:
+                where: "average_review_score is not null"
+
+  - name: mart_customer_segments
+    description: Monthly customer segment mart comparing new and returning customer value based on each customer's first observed purchase month.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_purchase_month_start, customer_segment]
+    columns:
+      - name: order_purchase_month_start
+        description: Month-level reporting grain represented by the first day of the month.
+        tests:
+          - not_null
+      - name: customer_segment
+        description: Customer status in the reporting month based on whether the month is the customer's first observed purchase month.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['new_customer', 'returning_customer']
+      - name: average_revenue_per_customer
+        description: Revenue divided by distinct customers in the segment and month.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+      - name: average_order_value
+        description: Average order revenue for the segment and month.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+      - name: delayed_order_rate
+        description: Share of orders in the segment and month that were delayed.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+                inclusive: true
+      - name: average_review_score
+        description: Average order-level review score for the segment and month.
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+                max_value: 5
+                inclusive: true
+              config:
+                where: "average_review_score is not null"
