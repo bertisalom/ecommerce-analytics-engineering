@@ -41,7 +41,7 @@ final as (
         average_review_score,
         has_review,
         has_order_low_review,
-        has_matching_review_item_count
+        has_single_item_single_review
     from orders_enriched
 )
 

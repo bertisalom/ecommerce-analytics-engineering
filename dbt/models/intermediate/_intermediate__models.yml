@@ -35,8 +35,8 @@ models:
           - not_null
       - name: has_order_low_review
         description: Flag indicating the order has at least one low review.
-      - name: has_matching_review_item_count
-        description: Flag indicating the order has matching review and item counts.
+      - name: has_single_item_single_review
+        description: Flag indicating the order has exactly one item and one review, used as the high-confidence subset for category review attribution.
 
   - name: int_order_items_enriched
     description: Reusable item-level model combining commercial metrics with product category attributes.

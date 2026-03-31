@@ -78,9 +78,10 @@ final as (
         reviews.average_review_score,
         coalesce(reviews.review_count, 0) > 0 as has_review,
         coalesce(reviews.has_order_low_review, false) as has_order_low_review,
-        -- Review-based category metrics rely on review_count matching item_count,
-        -- because the source does not map reviews directly to order items.
-        coalesce(reviews.review_count, 0) = coalesce(items.item_count, 0) as has_matching_review_item_count
+        -- Category-level review attribution is only treated as reliable when an
+        -- order has exactly one item and exactly one review.
+        coalesce(items.item_count, 0) = 1
+            and coalesce(reviews.review_count, 0) = 1 as has_single_item_single_review
     from orders
     left join customers
         on orders.customer_id = customers.customer_id

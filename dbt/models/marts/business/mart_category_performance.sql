@@ -45,12 +45,12 @@ final as (
         sum(category_orders.category_items_sold) as category_items_sold,
         avg(
             case
-                when orders.has_matching_review_item_count then orders.average_review_score
+                when orders.has_single_item_single_review then orders.average_review_score
             end
         ) as average_review_score,
         safe_divide(
-            countif(orders.has_matching_review_item_count and orders.has_order_low_review),
-            countif(orders.has_matching_review_item_count)
+            countif(orders.has_single_item_single_review and orders.has_order_low_review),
+            countif(orders.has_single_item_single_review)
         ) as low_review_rate,
         safe_divide(countif(orders.is_delayed), countif(orders.is_delivered)) as delayed_order_rate
     from category_orders

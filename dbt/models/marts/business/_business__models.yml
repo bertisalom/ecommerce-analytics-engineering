@@ -29,7 +29,7 @@ models:
                 inclusive: true
 
   - name: mart_category_performance
-    description: Monthly category mart combining commercial performance with customer experience outcomes. Review-based metrics exclude orders where review and item counts do not align.
+    description: Monthly category mart combining commercial performance with customer experience outcomes. Review-based metrics use only the high-confidence subset of orders with exactly one item and one review.
     tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -44,7 +44,7 @@ models:
         tests:
           - not_null
       - name: average_review_score
-        description: Average order-level review score for the subset of category orders where review and item counts match.
+        description: Average order-level review score for the subset of category orders with exactly one item and one review.
         tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -54,7 +54,7 @@ models:
               config:
                 where: "average_review_score is not null"
       - name: low_review_rate
-        description: Share of category orders with at least one low review within the subset where review and item counts match.
+        description: Share of category orders with at least one low review within the subset with exactly one item and one review.
         tests:
           - dbt_utils.accepted_range:
               arguments:

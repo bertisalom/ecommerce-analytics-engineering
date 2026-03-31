@@ -77,8 +77,8 @@ models:
         description: Number of reviews linked to the order.
         tests:
           - not_null
-      - name: has_matching_review_item_count
-        description: Flag indicating the order has equal counts of reviews and order items, used as a confidence rule for category review metrics.
+      - name: has_single_item_single_review
+        description: Flag indicating the order has exactly one item and one review, used as the high-confidence subset for category review metrics.
 
   - name: fct_order_items
     description: Order-item-level fact table used for commercial and category analysis.
