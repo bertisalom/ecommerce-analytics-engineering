@@ -1,0 +1,12 @@
+ecommerce_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "{{ env_var('RAW_DATASET_ID', 'raw') }}"
+      location: europe-west1
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
