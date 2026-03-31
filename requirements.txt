@@ -1,3 +1,5 @@
+-r cloud_run/dbt/requirements.txt
 google-cloud-storage==3.1.*
 google-cloud-bigquery==3.40.*
 PyYAML==6.0.*
+pytest==9.0.*
