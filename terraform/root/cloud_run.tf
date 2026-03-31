@@ -4,9 +4,9 @@ locals {
 }
 
 resource "google_cloud_run_v2_job" "ingestion" {
-  name     = var.ingestion_job_name
-  location = var.region
-  project  = var.project_id
+  name                = var.ingestion_job_name
+  location            = var.region
+  project             = var.project_id
   deletion_protection = false
 
   template {
