@@ -75,7 +75,7 @@ variable "ingestion_image_tag" {
 variable "dbt_job_name" {
   description = "Cloud Run job name for the dbt workload."
   type        = string
-  default     = "dbt"
+  default     = "dbt-job"
 }
 
 variable "dbt_image_name" {
