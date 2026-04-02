@@ -34,7 +34,7 @@ def test_build_object_name_uses_table_prefix() -> None:
     assert build_object_name(contract) == "orders/orders.csv"
 
 
-def test_validate_file_accepts_real_orders_file() -> None:
+def test_validate_file_accepts_valid_orders_file(tmp_path: Path) -> None:
     contract = FileContract(
         file_name="orders.csv",
         target_table="orders",
@@ -50,12 +50,24 @@ def test_validate_file_accepts_real_orders_file() -> None:
         ],
     )
 
-    file_path = validate_file(contract, Path("data/raw"))
+    csv_path = tmp_path / "orders.csv"
+    csv_path.write_text(
+        (
+            "order_id,customer_id,order_status,order_purchase_timestamp,"
+            "order_approved_at,order_delivered_carrier_date,"
+            "order_delivered_customer_date,order_estimated_delivery_date\n"
+            "1,customer_1,delivered,2017-01-01 00:00:00,2017-01-01 01:00:00,"
+            "2017-01-02 00:00:00,2017-01-05 00:00:00,2017-01-10\n"
+        ),
+        encoding="utf-8",
+    )
+
+    file_path = validate_file(contract, tmp_path)
 
     assert file_path.name == "orders.csv"
 
 
-def test_validate_file_accepts_bom_encoded_header() -> None:
+def test_validate_file_accepts_bom_encoded_header(tmp_path: Path) -> None:
     contract = FileContract(
         file_name="category_translation.csv",
         target_table="category_translation",
@@ -65,7 +77,16 @@ def test_validate_file_accepts_bom_encoded_header() -> None:
         ],
     )
 
-    file_path = validate_file(contract, Path("data/raw"))
+    csv_path = tmp_path / "category_translation.csv"
+    csv_path.write_text(
+        (
+            "product_category_name,product_category_name_english\n"
+            "beleza_saude,health_beauty\n"
+        ),
+        encoding="utf-8-sig",
+    )
+
+    file_path = validate_file(contract, tmp_path)
 
     assert file_path.name == "category_translation.csv"
 
