@@ -3,7 +3,7 @@
         partition_by={
             "field": "order_purchase_month_start",
             "data_type": "date",
-            "granularity": "day",
+            "granularity": "month",
         }
     )
 }}
