@@ -1,4 +1,4 @@
-# Root commands for image build/push, testing, and Terraform deployment of Cloud Run workloads.
+# Lean local commands for testing, infra changes, and image rollout.
 
 ifneq (,$(wildcard .env))
 include .env
@@ -13,52 +13,24 @@ TF_DIR ?= terraform/root
 INGESTION_IMAGE_URI := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REGISTRY_REPOSITORY)/$(INGESTION_IMAGE_NAME):$(INGESTION_IMAGE_TAG)
 DBT_IMAGE_URI := $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(ARTIFACT_REGISTRY_REPOSITORY)/$(DBT_IMAGE_NAME):$(DBT_IMAGE_TAG)
 
-.PHONY: help \
-	test-raw-upload test-ingestion test-all \
-	print-ingestion-image print-dbt-image build-ingestion push-ingestion build-dbt push-dbt \
-	tf-init tf-plan tf-apply
+.PHONY: help test-all deploy-all tf-init tf-plan tf-apply
 
 help:
 	@echo "Available targets:"
-	@echo "  test-raw-upload   Run raw upload unit tests"
-	@echo "  test-ingestion    Run ingestion unit tests"
 	@echo "  test-all          Run raw upload and ingestion unit tests"
-	@echo "  print-ingestion-image  Print the fully qualified ingestion image URI"
-	@echo "  print-dbt-image   Print the fully qualified dbt image URI"
-	@echo "  build-ingestion   Build the ingestion image"
-	@echo "  push-ingestion    Push the ingestion image"
-	@echo "  build-dbt         Build the dbt image"
-	@echo "  push-dbt          Push the dbt image"
+	@echo "  deploy-all        Push both images and roll out both Cloud Run jobs"
 	@echo "  tf-init           Initialize terraform/root"
-	@echo "  tf-plan           Run terraform plan in terraform/root with ingestion and dbt image tags"
-	@echo "  tf-apply          Run terraform apply in terraform/root with ingestion and dbt image tags"
-
-test-raw-upload:
-	.venv/bin/python -m pytest tests/unit/raw_upload/
-
-test-ingestion:
-	.venv/bin/python -m pytest tests/unit/ingestion/
+	@echo "  tf-plan           Run terraform plan in terraform/root for infra-only changes"
+	@echo "  tf-apply          Run terraform apply in terraform/root for infra-only changes"
 
 test-all:
 	.venv/bin/python -m pytest
 
-print-ingestion-image:
-	@echo $(INGESTION_IMAGE_URI)
-
-print-dbt-image:
-	@echo $(DBT_IMAGE_URI)
-
-build-ingestion:
-	docker buildx build --platform linux/amd64 -f cloud_run/ingestion/Dockerfile -t $(INGESTION_IMAGE_URI) --load .
-
-push-ingestion:
-	docker push $(INGESTION_IMAGE_URI)
-
-build-dbt:
-	docker buildx build --platform linux/amd64 -f cloud_run/dbt/Dockerfile -t $(DBT_IMAGE_URI) --load .
-
-push-dbt:
-	docker push $(DBT_IMAGE_URI)
+deploy-all:
+	docker buildx build --platform linux/amd64 -f cloud_run/ingestion/Dockerfile -t $(INGESTION_IMAGE_URI) --push .
+	docker buildx build --platform linux/amd64 -f cloud_run/dbt/Dockerfile -t $(DBT_IMAGE_URI) --push .
+	gcloud run jobs update $(INGESTION_JOB_NAME) --project=$(GCP_PROJECT_ID) --region=$(GCP_REGION) --image=$(INGESTION_IMAGE_URI)
+	gcloud run jobs update $(DBT_JOB_NAME) --project=$(GCP_PROJECT_ID) --region=$(GCP_REGION) --image=$(DBT_IMAGE_URI)
 
 tf-init:
 	terraform -chdir=$(TF_DIR) init

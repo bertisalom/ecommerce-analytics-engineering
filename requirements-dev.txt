@@ -1,4 +1,0 @@
--r requirements.txt
-dbt-bigquery==1.11.*
-pytest-cov==7.1.*
-ruff==0.15.*

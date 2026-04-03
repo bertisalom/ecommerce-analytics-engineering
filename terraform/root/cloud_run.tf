@@ -9,6 +9,14 @@ resource "google_cloud_run_v2_job" "ingestion" {
   project             = var.project_id
   deletion_protection = false
 
+  lifecycle {
+    # Routine image rollout is handled outside Terraform so infra-only applies
+    # do not require rebuilding and pushing workload images first.
+    ignore_changes = [
+      template[0].template[0].containers[0].image,
+    ]
+  }
+
   template {
     template {
       service_account = google_service_account.ingestion.email
@@ -58,6 +66,14 @@ resource "google_cloud_run_v2_job" "dbt" {
   location            = var.region
   project             = var.project_id
   deletion_protection = false
+
+  lifecycle {
+    # Routine image rollout is handled outside Terraform so infra-only applies
+    # do not require rebuilding and pushing workload images first.
+    ignore_changes = [
+      template[0].template[0].containers[0].image,
+    ]
+  }
 
   template {
     template {
