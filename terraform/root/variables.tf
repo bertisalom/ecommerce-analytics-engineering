@@ -55,6 +55,40 @@ variable "dbt_service_account_id" {
   default     = "dbt"
 }
 
+variable "ci_service_account_id" {
+  description = "Service account ID for GitHub Actions CI."
+  type        = string
+  default     = "github-ci"
+}
+
+variable "deploy_service_account_id" {
+  description = "Service account ID for GitHub Actions deploy workflow."
+  type        = string
+  default     = "github-deploy"
+}
+
+variable "github_owner" {
+  description = "GitHub owner or organization for the repository allowed to use Workload Identity Federation."
+  type        = string
+}
+
+variable "github_repository" {
+  description = "GitHub repository name allowed to use Workload Identity Federation."
+  type        = string
+}
+
+variable "github_wif_pool_id" {
+  description = "Workload Identity Pool ID for GitHub Actions."
+  type        = string
+  default     = "github-actions"
+}
+
+variable "github_wif_provider_id" {
+  description = "Workload Identity Provider ID for GitHub Actions."
+  type        = string
+  default     = "github-actions"
+}
+
 variable "ingestion_job_name" {
   description = "Cloud Run job name for the ingestion workload."
   type        = string
@@ -64,7 +98,7 @@ variable "ingestion_job_name" {
 variable "ingestion_image_name" {
   description = "Artifact Registry image name for ingestion."
   type        = string
-  default     = "ingestion"
+  default     = "ingestion-image"
 }
 
 variable "ingestion_image_tag" {
@@ -81,7 +115,7 @@ variable "dbt_job_name" {
 variable "dbt_image_name" {
   description = "Artifact Registry image name for dbt."
   type        = string
-  default     = "dbt"
+  default     = "dbt-image"
 }
 
 variable "dbt_image_tag" {
