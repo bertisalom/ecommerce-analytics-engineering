@@ -1,90 +1,60 @@
 # E-commerce Analytics Engineering on GCP
 
-This project is an end-to-end analytics engineering portfolio project built on GCP. Its goal is to turn raw Brazilian e-commerce data into trusted, analytics-ready models that support business reporting and dashboarding.
+This repository is an end-to-end analytics engineering project built on Google Cloud. It takes raw Brazilian e-commerce CSV files, validates and uploads them to GCS, loads them into append-only BigQuery `raw` tables, and transforms them with dbt into a dimensional reporting layer.
 
-The project is designed to demonstrate practical analytics engineering skills across ingestion, warehousing, transformation, testing, and infrastructure. It stays intentionally lean: the focus is on solving clear business problems with clean architecture, not on adding platform complexity for its own sake.
+It is designed to show practical analytics engineering work across ingestion, modeling, testing, deployment, and infrastructure without adding unnecessary platform complexity.
 
-## Project Goal
+## What This Repo Demonstrates
 
-The goal of this project is to build a reliable analytics pipeline that:
+- Python-based raw file validation and upload
+- Contract-driven ingestion into BigQuery
+- dbt staging, intermediate, fact, dimension, and business mart models
+- Terraform-managed GCP infrastructure
+- GitHub Actions CI and deploy workflows using Workload Identity Federation
+- A batch architecture that stays straightforward to operate
 
-- ingests raw e-commerce source files into the cloud
-- stores append-only raw data in BigQuery
-- transforms raw data into clean and modular dbt models
-- presents a dimensional reporting layer for dashboards and business analysis
+## Business Focus
 
-The project is built to show how analytics engineering connects data platform design with business-facing reporting.
+The reporting layer is built to answer a small set of useful questions:
 
-## Business Questions
-
-The reporting layer is designed to answer four main questions:
-
-1. How are orders, revenue, and delivery success trending over time?
-2. Which product categories drive the most revenue, and which categories create poor customer experience?
-3. How does delivery performance influence customer satisfaction?
-4. How do new and returning customers differ in value and behavior?
-
-These questions shape the modeling logic, the warehouse design, and the final business marts.
+- How orders and revenue trend over time
+- Which categories drive revenue and which correlate with weaker customer experience
+- How delivery performance relates to review outcomes
+- How customer segments differ in behavior and value
 
 ## Architecture
 
-The pipeline follows a simple batch-oriented cloud workflow:
-
 ![Pipeline architecture](assets/architecture/pipeline-architecture.png)
 
-Main components:
+Flow:
 
-- `raw_upload/`
-  Local validation and upload of source files into GCS.
-- `cloud_run/ingestion/`
-  Cloud Run job that loads source files from GCS into append-only BigQuery raw tables.
-- `dbt/`
-  Transformation layer that builds staging, intermediate, dimensional, and business reporting models.
-- `cloud_run/dbt/`
-  Thin Cloud Run runtime wrapper for executing dbt in batch mode.
-- `terraform/root/`
-  Infrastructure-as-code for datasets, bucket, IAM, Artifact Registry, and Cloud Run jobs.
+1. Local CSV files in `data/raw/` are validated against [`schema_contracts.yaml`](cloud_run/ingestion/schema_contracts.yaml).
+2. [`raw_upload/`](raw_upload/) uploads approved files to GCS with table-aligned object paths.
+3. [`cloud_run/ingestion/`](cloud_run/ingestion/) loads each file into a temporary BigQuery table, then appends it to a partitioned `raw` table with ingestion metadata.
+4. [`dbt/`](dbt/) builds `stg`, `int`, and `mart` datasets on top of the raw layer.
+5. [`terraform/root/`](terraform/root/) provisions storage, datasets, service accounts, Artifact Registry, Cloud Run jobs, IAM, and GitHub OIDC/WIF integration.
 
-## Data Modeling Approach
+## Data Model
 
-The warehouse follows a medallion-style structure with a dimensional core on top:
+The warehouse structure:
 
-- `raw`
-  Append-only ingestion tables in BigQuery.
-- `stg`
-  Source-aligned cleanup and deduplication.
-- `int`
-  Reusable business logic and order/customer enrichment.
-- `mart`
-  Final presentation layer split into dimensional core models and business marts.
+- `raw`: append-only landed data with ingestion metadata
+- `stg`: cleaned and deduplicated source-aligned models
+- `int`: reusable joins and business logic
+- `mart`: final presentation layer split into dimensional core models and business marts
 
 Inside `mart`, the project uses:
 
-- dimensional core models
-  - `dim_customers`
-  - `dim_products`
-  - `fct_orders`
-  - `fct_order_items`
-- business marts
-  - `mart_kpi_daily`
-  - `mart_category_performance`
-  - `mart_delivery_satisfaction`
-  - `mart_customer_segments`
+- dimensional core models: `dim_customers`, `dim_products`, `fct_orders`, `fct_order_items`
+- business marts: `mart_kpi_daily`, `mart_category_performance`, `mart_delivery_satisfaction`, `mart_customer_segments`
 
-See [dbt/README.md](dbt/README.md) for a more detailed view of the transformation layer, model grains, and lineage.
-
-This structure keeps the project easy to explain:
-
-- staging handles cleaning
-- intermediate models handle reusable logic
-- facts and dimensions provide a stable analytical core
-- marts answer business questions directly
+More detail and lineage live in [dbt/README.md](dbt/README.md).
 
 ## Source Data
 
-The project uses the Brazilian E-Commerce Public Dataset by Olist.
+The project uses a subset of the Brazilian e-commerce dataset files stored in `data/raw/`.
 
-Files in scope:
+Files currently in scope:
 
 - `orders.csv`
 - `order_items.csv`
@@ -104,52 +74,43 @@ Files in scope:
 - Terraform
 - GitHub Actions
 
-## Repository Structure
+## Repo Guide
 
 ```text
-data/raw/             Local source files
-assets/               Shared documentation images and screenshots
-raw_upload/           Local validation and upload to GCS
-cloud_run/ingestion/  Cloud Run job for raw BigQuery ingestion
-cloud_run/dbt/        Cloud Run runtime wrapper for dbt
-dbt/                  dbt models, macros, tests, and configuration
-terraform/root/       GCP infrastructure
+data/raw/             Source CSV files used for the project
+raw_upload/           Local validation and upload logic for GCS
+cloud_run/ingestion/  BigQuery raw ingestion workload
+cloud_run/dbt/        Cloud Run image for dbt execution
+dbt/                  Transformation models, tests, macros, and docs
+terraform/root/       GCP infrastructure and GitHub WIF setup
 tests/                Python unit tests
+runbook.md            Bootstrap, deploy, and execution steps
 ```
 
-## How To Run
+## Quick Start
 
-First-time setup is a two-step process:
+Use [.env.example](.env.example) and [terraform.tfvars.example](terraform/root/terraform.tfvars.example) as templates.
 
-1. bootstrap Artifact Registry so workload images can be pushed
-2. build and push workload images, then apply Terraform so the full infrastructure and Cloud Run jobs can be created with real image references
+For local setup, infrastructure bootstrap, testing, raw file upload, and Cloud Run execution, follow [runbook.md](runbook.md).
 
-Use [.env.example](.env.example) and [terraform.tfvars.example](terraform/root/terraform.tfvars.example) as setup references.
+The runbook covers the full end-to-end flow, including first-time infrastructure setup, image build and push, raw file upload, and job execution.
 
-The detailed operator flow is documented in [runbook.md](runbook.md).
+## CI/CD Pipeline
 
-## Testing and Data Quality
+CI in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs:
 
-The project includes:
+- Python unit tests
+- `dbt deps`, `dbt parse`, and `dbt build`
+- Terraform formatting checks
+- ephemeral BigQuery datasets for isolated CI dbt validation
 
-- Python unit tests for upload and ingestion logic
-- dbt schema tests for grain, nullability, relationships, and accepted values
-- `dbt_utils` tests for composite keys and accepted ranges
-- focused dbt singular tests for business invariants such as revenue consistency
-
-## CI
-
-The repository includes a lean GitHub Actions CI setup:
-
-- `ci.yml`
-  Runs Python unit tests, installs dbt packages, parses the dbt project, and checks Terraform formatting on pushes and pull requests.
+Deploy in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds and pushes both Cloud Run images, then updates the ingestion and dbt jobs in GCP.
 
 ## Design Choices
 
-Several choices are intentional:
-
-- raw tables are append-only so ingestion history is preserved
-- deduplication is handled in dbt staging rather than ingestion code
-- dbt transformations use deterministic full builds instead of incremental complexity
-- Cloud Run is used for batch execution of both ingestion and dbt workloads
-- IAM is scoped by workload so ingestion and dbt use separate service accounts with only the permissions required for their responsibilities
+- Raw ingestion is append-only by design.
+- Schema validation happens before upload and schema enforcement happens again at load time.
+- Deduplication is handled in dbt staging, not inside the ingestion job.
+- Category review attribution is intentionally conservative and uses only orders with exactly one item and one review.
+- Cloud Run image rollout is handled outside Terraform so normal code deploys do not require a full infra apply.
+- Workload identities are separated across ingestion, dbt, CI, and deploy service accounts.

@@ -1,191 +1,306 @@
 # Runbook
 
-This runbook describes how to bootstrap, deploy, and execute the project workloads.
+This runbook explains how to set up, bootstrap, deploy, and operate the project.
 
-The project uses two Cloud Run jobs:
+The project has two Cloud Run jobs:
 
-- `ingestion-job`
-  Loads source files from GCS into append-only BigQuery `raw` tables.
-- `dbt-job`
-  Builds the dbt project from `raw` into `stg`, `int`, and `mart`.
+- `ingestion-job`: loads validated files from GCS into append-only BigQuery `raw` tables
+- `dbt-job`: runs `dbt build` to create `stg`, `int`, and `mart`
+
+## Before You Start
+
+You need these installed locally:
+
+- Python
+- Docker with `buildx`
+- `gcloud`
+- Terraform
+
+You also need access to a GCP project where you can create:
+
+- APIs
+- service accounts and IAM bindings
+- a GCS bucket
+- BigQuery datasets
+- Artifact Registry
+- Cloud Run jobs
+
+## Configuration Files
+
+Create local config files first:
+
+```bash
+cp .env.example .env
+cp terraform/root/terraform.tfvars.example terraform/root/terraform.tfvars
+```
+
+Treat `terraform/root/terraform.tfvars` as the canonical configuration. Local `.env` values should mirror the Terraform values that local commands need.
+
+- Terraform is the source of truth for infrastructure names and IDs
+- `.env` mirrors the subset of values needed by local commands, `raw_upload`, and the `Makefile`
+- GitHub repository variables mirror the subset of values needed by CI and deploy
+- Terraform outputs are the easiest way to confirm the final deployed values and keep the mirrored values aligned
+
+Sync helpers:
+
+- [`scripts/terraform_outputs_to_env.sh`](scripts/terraform_outputs_to_env.sh) prints mirrored local `.env` values from Terraform outputs
+- [`scripts/terraform_outputs_to_github_actions.sh`](scripts/terraform_outputs_to_github_actions.sh) prints the GitHub Actions repository variables expected by CI and deploy
 
 ## Local Setup
 
-From a fresh clone, prepare the local environment first:
-
-1. Clone the repository and move into the project directory.
-2. Create and activate a virtual environment.
-3. Install Python dependencies from `requirements.txt`.
-4. Create `.env` from `.env.example`.
-5. Create `terraform/root/terraform.tfvars` from `terraform/root/terraform.tfvars.example`.
-6. Confirm the raw source files are present under `data/raw/`.
-7. Authenticate `gcloud` for the target project.
-8. Authenticate Docker to Artifact Registry for the target region.
-
-Example local setup:
+Typical local setup:
 
 ```bash
-git clone <repo-url>
-cd ecommerce-analytics-engineering
-
 python -m venv .venv
 source .venv/bin/activate
-
 pip install -r requirements.txt
+```
 
-cp .env.example .env
-cp terraform/root/terraform.tfvars.example terraform/root/terraform.tfvars
+The `Makefile` expects the virtual environment to live at `.venv`.
 
+Authenticate locally:
+
+```bash
 gcloud auth login
 gcloud auth application-default login
 gcloud config set project <your-gcp-project-id>
-gcloud auth configure-docker $GCP_REGION-docker.pkg.dev
+gcloud auth configure-docker <your-region>-docker.pkg.dev
 ```
 
-## Image And Repository Convention
+Check that the expected source files exist in `data/raw/` before continuing. The active ingestion contract currently covers:
 
-The project uses one Artifact Registry repository and two workload images:
+- `category_translation.csv`
+- `customers.csv`
+- `order_items.csv`
+- `orders.csv`
+- `products.csv`
+- `reviews.csv`
 
-- repository: value provided through Terraform and environment configuration
-- ingestion image: `ingestion`
-- dbt image: `dbt`
+## Dependency Order For First-Time Setup
 
-By default, image tags come from the current git commit SHA through the `Makefile`.
+The first deployment has one important dependency:
+
+- the Cloud Run jobs need container image URIs
+- the container images need an Artifact Registry repository
+- therefore Terraform cannot create the full Cloud Run stack until the repository exists and the first images have been pushed
+
+That is why first-time setup happens in this order:
+
+1. Initialize Terraform
+2. Create Artifact Registry only
+3. Build and push the first ingestion and dbt images
+4. Apply the full Terraform stack
+5. Upload raw files to GCS
+6. Run ingestion
+7. Run dbt
 
 ## First-Time Bootstrap
 
-On the first deployment, Terraform cannot fully create the Cloud Run jobs until
-the workload images have been pushed to Artifact Registry. Because of that, the
-initial setup is done in two phases.
-
-This bootstrap flow is a one-time exception for initial provisioning. After the
-first successful setup, use the normal workflow above.
-
-### Phase 1: Bootstrap Artifact Registry
-
-Initialize Terraform:
+### 1. Initialize Terraform
 
 ```bash
 make tf-init
 ```
 
-Create the Artifact Registry repository first:
+### 2. Create Artifact Registry First
+
+This is the only targeted apply required for first-time setup.
 
 ```bash
 terraform -chdir=terraform/root apply \
   -target=google_artifact_registry_repository.containers
 ```
 
-This step is enough for the first image push because the immediate dependency is
-the existence of the Artifact Registry repository. The remaining infrastructure
-can be created in the full apply after the images are available.
+### 3. Build And Push The First Images
 
-This creates:
-
-- Artifact Registry repository
-
-### Phase 2: Build and push workload images
+The current `Makefile` does not expose separate first-time build and push targets, so use the explicit Docker commands below for bootstrap.
 
 Build and push the ingestion image:
 
 ```bash
-make build-ingestion
-make push-ingestion
+docker buildx build \
+  --platform linux/amd64 \
+  --file cloud_run/ingestion/Dockerfile \
+  --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${INGESTION_IMAGE_NAME}:$(git rev-parse HEAD)" \
+  --push \
+  .
 ```
 
 Build and push the dbt image:
 
 ```bash
-make build-dbt
-make push-dbt
+docker buildx build \
+  --platform linux/amd64 \
+  --file cloud_run/dbt/Dockerfile \
+  --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${DBT_IMAGE_NAME}:$(git rev-parse HEAD)" \
+  --push \
+  .
 ```
 
-### Phase 3: Apply full infrastructure
+### 4. Apply The Full Terraform Stack
 
-Now that the images exist, apply the full Terraform stack:
+Now Terraform can create the rest of the infrastructure, including the Cloud Run jobs that reference those images.
 
 ```bash
 make tf-plan
 make tf-apply
 ```
 
-This creates or updates the Cloud Run jobs with image references that already exist in Artifact Registry.
+This creates or updates:
 
-### Phase 4: Upload raw source files to GCS
+- required APIs
+- the raw GCS bucket
+- `raw`, `stg`, `int`, and `mart` BigQuery datasets
+- service accounts for ingestion, dbt, CI, and deploy
+- IAM bindings
+- Cloud Run jobs
+- GitHub Workload Identity Federation resources
 
-Before running the ingestion job for the first time, upload the local raw files into the raw bucket:
+After the full apply, you can print the mirrored local values from Terraform outputs:
+
+```bash
+scripts/terraform_outputs_to_env.sh
+```
+
+### 5. Upload Raw Files To GCS
+
+Run the local upload only after the bucket exists.
 
 ```bash
 python -m raw_upload.upload_to_gcs
 ```
 
-This is typically a one-time bootstrap step unless the local source files are replaced or refreshed.
+This validates each CSV header against [`cloud_run/ingestion/schema_contracts.yaml`](cloud_run/ingestion/schema_contracts.yaml) before upload.
 
-### Phase 5: Execute Cloud Run jobs
-
-Run the ingestion workload first:
+### 6. Run The Ingestion Job
 
 ```bash
-gcloud run jobs execute ingestion-job --region=$GCP_REGION --project=$GCP_PROJECT_ID --wait
+gcloud run jobs execute "$INGESTION_JOB_NAME" \
+  --region="$GCP_REGION" \
+  --project="$GCP_PROJECT_ID" \
+  --wait
 ```
 
-Then run the dbt workload:
+### 7. Run The dbt Job
+
+Run dbt only after raw data has been loaded.
 
 ```bash
-gcloud run jobs execute dbt-job --region=$GCP_REGION --project=$GCP_PROJECT_ID --wait
+gcloud run jobs execute "$DBT_JOB_NAME" \
+  --region="$GCP_REGION" \
+  --project="$GCP_PROJECT_ID" \
+  --wait
 ```
 
-## Normal Workflow
+## Normal Operating Flows
 
-After the initial bootstrap, the standard operator flow is:
+Use the flow that matches the kind of change you made.
+
+### Infra-Only Changes
+
+Use this when you changed Terraform but not the workload code.
 
 ```bash
-make build-ingestion
-make push-ingestion
-
-make build-dbt
-make push-dbt
-
 make tf-plan
 make tf-apply
 ```
 
-Before running `ingestion-job`, upload the raw source files into GCS if they are not already present in the raw bucket:
+### Workload Code Changes
+
+Use this when you changed the ingestion code or dbt Cloud Run image and the jobs already exist.
+
+```bash
+make deploy-all
+```
+
+`deploy-all` builds and pushes both images, then updates both existing Cloud Run jobs.
+
+### Raw Data Refresh
+
+Use this when local files in `data/raw/` changed.
 
 ```bash
 python -m raw_upload.upload_to_gcs
+
+gcloud run jobs execute "$INGESTION_JOB_NAME" \
+  --region="$GCP_REGION" \
+  --project="$GCP_PROJECT_ID" \
+  --wait
+
+gcloud run jobs execute "$DBT_JOB_NAME" \
+  --region="$GCP_REGION" \
+  --project="$GCP_PROJECT_ID" \
+  --wait
 ```
 
-In the normal workflow, this usually remains a one-time initial load step and only needs to be repeated if the local source files change.
+## Testing
 
-Then execute the jobs:
+Run Python unit tests locally:
 
 ```bash
-gcloud run jobs execute ingestion-job --region=$GCP_REGION --project=$GCP_PROJECT_ID --wait
-gcloud run jobs execute dbt-job --region=$GCP_REGION --project=$GCP_PROJECT_ID --wait
+make test-all
 ```
 
-## How The dbt Runtime Works
+Run dbt locally if you want to validate the project before deploying. The committed [`dbt/profiles.yml`](dbt/profiles.yml) reads local settings from environment variables.
 
-The dbt Cloud Run image is designed to stay thin:
+```bash
+dbt deps --project-dir dbt --profiles-dir dbt
+dbt parse --project-dir dbt --profiles-dir dbt
+dbt build --project-dir dbt --profiles-dir dbt
+```
 
-- the root `dbt/` project is copied into the image
-- `dbt deps` is baked into the image during Docker build
-- the Cloud Run job only runs `dbt build`
+## GitHub Actions Setup
 
-This keeps runtime execution simpler and avoids package installation during job execution.
+After Terraform creates the WIF provider and service accounts, use the Terraform outputs to configure the GitHub repository variables used by CI and deploy.
+
+Relevant outputs:
+
+- `project_id`
+- `region`
+- `raw_bucket_name`
+- `raw_dataset_id`
+- `artifact_registry_repository`
+- `ingestion_job_name`
+- `ingestion_image_name`
+- `dbt_job_name`
+- `dbt_image_name`
+- `github_actions_wif_provider_name`
+- `github_actions_ci_service_account_email`
+- `github_actions_deploy_service_account_email`
+
+To print the expected GitHub Actions values from Terraform outputs:
+
+```bash
+scripts/terraform_outputs_to_github_actions.sh
+```
+
+Repository variables:
+
+- `GCP_PROJECT_ID`
+- `GCP_REGION`
+- `ARTIFACT_REGISTRY_REPOSITORY`
+- `RAW_DATASET_ID`
+- `INGESTION_JOB_NAME`
+- `INGESTION_IMAGE_NAME`
+- `DBT_JOB_NAME`
+- `DBT_IMAGE_NAME`
+- `GCP_WIF_PROVIDER`
+- `GCP_CI_SERVICE_ACCOUNT_EMAIL`
+- `GCP_DEPLOY_SERVICE_ACCOUNT_EMAIL`
 
 ## Verification
 
-After running the jobs:
+After a successful run, verify:
 
-- check Cloud Run execution status
-- inspect Cloud Run logs if a job fails
-- confirm raw tables loaded in BigQuery after `ingestion-job`
-- confirm `stg`, `int`, and `mart` tables were built after `dbt`
+- the raw bucket contains objects under table-aligned prefixes such as `orders/orders.csv`
+- BigQuery `raw` tables contain landed rows plus ingestion metadata
+- dbt built objects in `stg`, `int`, and `mart`
+- Cloud Run job executions completed successfully
 
 ## Troubleshooting
 
-- If the first Terraform apply fails because Cloud Run cannot resolve an image, use the bootstrap flow above. The workload image must exist in Artifact Registry before the Cloud Run job can be created successfully.
-- If image pushes fail, confirm Docker is authenticated to Artifact Registry for the target project and region.
-- If the dbt job fails, inspect the Cloud Run execution logs first, then validate the local dbt project with `dbt parse` or `dbt build`.
+- If the first full Terraform apply fails on Cloud Run image resolution, the first images were not pushed yet or were pushed with a different repository, image name, or tag than Terraform expects.
+- If `raw_upload` fails, check `.env`, bucket name, GCP auth, and CSV headers.
+- If `make deploy-all` fails, confirm the Cloud Run jobs already exist. It is not a first-time bootstrap command.
+- If `make test-all` fails, confirm the virtual environment exists at `.venv` and dependencies are installed.
+- If dbt fails, check that raw tables exist first and that `GCP_PROJECT_ID`, `GCP_REGION`, and `RAW_DATASET_ID` are set correctly.
