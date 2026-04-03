@@ -86,6 +86,8 @@ resource "google_cloud_run_v2_job" "dbt" {
 
         args = [
           "build",
+          "--target",
+          var.dbt_target,
         ]
 
         env {
@@ -101,6 +103,21 @@ resource "google_cloud_run_v2_job" "dbt" {
         env {
           name  = "RAW_DATASET_ID"
           value = var.raw_dataset_id
+        }
+
+        env {
+          name  = "STG_DATASET_ID"
+          value = var.stg_dataset_id
+        }
+
+        env {
+          name  = "INT_DATASET_ID"
+          value = var.int_dataset_id
+        }
+
+        env {
+          name  = "MART_DATASET_ID"
+          value = var.mart_dataset_id
         }
       }
     }

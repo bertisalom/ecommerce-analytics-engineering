@@ -8,7 +8,7 @@ sources:
       records, so downstream dbt staging models select the latest ingested
       version per business key.
     database: "{{ env_var('GCP_PROJECT_ID', target.project) }}"
-    schema: raw
+    schema: "{{ env_var('RAW_DATASET_ID', target.schema) }}"
     tables:
       - name: orders
         description: Raw orders source with ingestion metadata.

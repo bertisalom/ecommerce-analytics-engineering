@@ -1,8 +1,3 @@
-output "github_actions_wif_provider_name" {
-  description = "Fully qualified Workload Identity Provider resource name for GitHub Actions authentication."
-  value       = google_iam_workload_identity_pool_provider.github_actions.name
-}
-
 output "project_id" {
   description = "GCP project ID used by this deployment."
   value       = var.project_id
@@ -23,14 +18,24 @@ output "raw_dataset_id" {
   value       = google_bigquery_dataset.raw.dataset_id
 }
 
+output "stg_dataset_id" {
+  description = "BigQuery dataset ID used for staging models."
+  value       = google_bigquery_dataset.stg.dataset_id
+}
+
+output "int_dataset_id" {
+  description = "BigQuery dataset ID used for intermediate models."
+  value       = google_bigquery_dataset.int.dataset_id
+}
+
+output "mart_dataset_id" {
+  description = "BigQuery dataset ID used for mart models."
+  value       = google_bigquery_dataset.mart.dataset_id
+}
+
 output "artifact_registry_repository" {
   description = "Artifact Registry repository for workload images."
   value       = google_artifact_registry_repository.containers.repository_id
-}
-
-output "ingestion_job_name" {
-  description = "Cloud Run job name for ingestion."
-  value       = google_cloud_run_v2_job.ingestion.name
 }
 
 output "ingestion_image_name" {
@@ -38,14 +43,19 @@ output "ingestion_image_name" {
   value       = var.ingestion_image_name
 }
 
-output "dbt_job_name" {
-  description = "Cloud Run job name for dbt."
-  value       = google_cloud_run_v2_job.dbt.name
+output "ingestion_job_name" {
+  description = "Cloud Run job name for ingestion."
+  value       = google_cloud_run_v2_job.ingestion.name
 }
 
 output "dbt_image_name" {
   description = "Artifact Registry image name for dbt."
   value       = var.dbt_image_name
+}
+
+output "dbt_job_name" {
+  description = "Cloud Run job name for dbt."
+  value       = google_cloud_run_v2_job.dbt.name
 }
 
 output "github_actions_ci_service_account_email" {
@@ -56,4 +66,9 @@ output "github_actions_ci_service_account_email" {
 output "github_actions_deploy_service_account_email" {
   description = "Service account email used by the GitHub Actions deploy workflow."
   value       = google_service_account.deploy.email
+}
+
+output "github_actions_wif_provider_name" {
+  description = "Fully qualified Workload Identity Provider resource name for GitHub Actions authentication."
+  value       = google_iam_workload_identity_pool_provider.github_actions.name
 }

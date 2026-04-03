@@ -1,11 +1,11 @@
 ecommerce_analytics:
-  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  target: dev
   outputs:
     dev:
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: "{{ env_var('RAW_DATASET_ID') }}"
+      dataset: "{{ env_var('USER') }}"
       location: "{{ env_var('GCP_REGION') }}"
       threads: 4
       job_execution_timeout_seconds: 300
@@ -14,7 +14,16 @@ ecommerce_analytics:
       type: bigquery
       method: oauth
       project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: "{{ env_var('RAW_DATASET_ID') }}"
+      dataset: "ci"
+      location: "{{ env_var('GCP_REGION') }}"
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: "prod"
       location: "{{ env_var('GCP_REGION') }}"
       threads: 4
       job_execution_timeout_seconds: 300

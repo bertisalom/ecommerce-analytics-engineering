@@ -23,11 +23,11 @@ clean-targets:
 models:
   ecommerce_analytics:
     staging:
-      +schema: stg
+      +schema: "{{ env_var('STG_DATASET_ID') }}"
       +materialized: table
     intermediate:
-      +schema: int
+      +schema: "{{ env_var('INT_DATASET_ID') }}"
       +materialized: table
     marts:
-      +schema: mart
+      +schema: "{{ env_var('MART_DATASET_ID') }}"
       +materialized: table

@@ -18,7 +18,9 @@ jobs:
       GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION }}
       RAW_DATASET_ID: ${{ vars.RAW_DATASET_ID }}
-      DBT_TARGET: ci
+      STG_DATASET_ID: ${{ vars.STG_DATASET_ID }}
+      INT_DATASET_ID: ${{ vars.INT_DATASET_ID }}
+      MART_DATASET_ID: ${{ vars.MART_DATASET_ID }}
 
     steps:
       - name: Checkout repository
@@ -54,26 +56,26 @@ jobs:
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
           echo "DBT_CI_SCHEMA_SUFFIX=$SHORT_SHA" >> "$GITHUB_ENV"
-          echo "STG_DATASET_ID=stg_ci_$SHORT_SHA" >> "$GITHUB_ENV"
-          echo "INT_DATASET_ID=int_ci_$SHORT_SHA" >> "$GITHUB_ENV"
-          echo "MART_DATASET_ID=mart_ci_$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "STG_CI_DATASET_ID=stg_ci_$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "INT_CI_DATASET_ID=int_ci_$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "MART_CI_DATASET_ID=mart_ci_$SHORT_SHA" >> "$GITHUB_ENV"
 
       - name: Install dbt packages
         run: dbt deps --project-dir dbt --profiles-dir dbt
 
       - name: Parse dbt project
-        run: dbt parse --project-dir dbt --profiles-dir dbt --target "$DBT_TARGET"
+        run: dbt parse --project-dir dbt --profiles-dir dbt --target ci
 
       - name: Create ephemeral BigQuery CI datasets
         run: |
-          for dataset in "$STG_DATASET_ID" "$INT_DATASET_ID" "$MART_DATASET_ID"; do
+          for dataset in "$STG_CI_DATASET_ID" "$INT_CI_DATASET_ID" "$MART_CI_DATASET_ID"; do
             if ! bq show --format=none "$GCP_PROJECT_ID:$dataset" >/dev/null 2>&1; then
               bq mk --dataset --location="$GCP_REGION" "$GCP_PROJECT_ID:$dataset"
             fi
           done
 
       - name: Build and test dbt project
-        run: dbt build --project-dir dbt --profiles-dir dbt --target "$DBT_TARGET"
+        run: dbt build --project-dir dbt --profiles-dir dbt --target ci
 
       - name: Check Terraform formatting
         uses: hashicorp/setup-terraform@v3
@@ -86,6 +88,6 @@ jobs:
       - name: Drop ephemeral BigQuery CI datasets
         if: ${{ always() }}
         run: |
-          for dataset in "$STG_DATASET_ID" "$INT_DATASET_ID" "$MART_DATASET_ID"; do
+          for dataset in "$STG_CI_DATASET_ID" "$INT_CI_DATASET_ID" "$MART_CI_DATASET_ID"; do
             bq rm --dataset --force --recursive -q "$GCP_PROJECT_ID:$dataset" || true
           done

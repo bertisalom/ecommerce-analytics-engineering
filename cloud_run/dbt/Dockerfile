@@ -16,6 +16,12 @@ RUN mkdir -p /root/.dbt \
 
 WORKDIR /app/dbt
 
-RUN dbt deps
+RUN GCP_PROJECT_ID=placeholder-project \
+  GCP_REGION=placeholder-region \
+  RAW_DATASET_ID=placeholder-raw \
+  STG_DATASET_ID=placeholder-stg \
+  INT_DATASET_ID=placeholder-int \
+  MART_DATASET_ID=placeholder-mart \
+  dbt deps --target prod
 
 ENTRYPOINT ["dbt"]
