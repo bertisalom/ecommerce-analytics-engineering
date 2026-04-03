@@ -94,6 +94,11 @@ resource "google_cloud_run_v2_job" "dbt" {
         }
 
         env {
+          name  = "GCP_REGION"
+          value = var.region
+        }
+
+        env {
           name  = "RAW_DATASET_ID"
           value = var.raw_dataset_id
         }
