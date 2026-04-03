@@ -51,6 +51,8 @@ The goal of this layer is to transform raw operational data into trusted analyti
 
 Local commands assume the required environment variables are already available in the shell and that the committed [profiles.yml](profiles.yml) file is used as the local dbt profile.
 
+Terraform manages the base dataset names for `stg`, `int`, and `mart`. `profiles.yml` uses a target-specific anchor dataset, while actual model placement is controlled by the base `STG_DATASET_ID`, `INT_DATASET_ID`, and `MART_DATASET_ID` values plus the schema-generation macro. Local development isolation comes from the shell `USER`, which makes dbt build into `<base_schema>_<user>` while cloud runs keep the fixed Terraform-managed base schemas.
+
 ```bash
 dbt parse --project-dir dbt --profiles-dir dbt
 dbt build --project-dir dbt --profiles-dir dbt

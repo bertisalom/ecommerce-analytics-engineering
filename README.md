@@ -91,6 +91,8 @@ runbook.md            Bootstrap, deploy, and execution steps
 
 Use [.env.example](.env.example) and [terraform.tfvars.example](terraform/root/terraform.tfvars.example) as templates.
 
+For dbt, Terraform manages the base dataset names for `raw`, `stg`, `int`, and `mart`. Local development builds into user-suffixed schemas, while CI and Cloud Run use isolated CI schemas and fixed production schemas.
+
 For local setup, infrastructure bootstrap, testing, raw file upload, and Cloud Run execution, follow [runbook.md](runbook.md).
 
 The runbook covers the full end-to-end flow, including first-time infrastructure setup, image build and push, raw file upload, and job execution.

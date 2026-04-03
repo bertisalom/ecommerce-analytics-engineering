@@ -41,6 +41,15 @@ Treat `terraform/root/terraform.tfvars` as the canonical configuration. Local `.
 - GitHub repository variables mirror the subset of values needed by CI and deploy
 - Terraform outputs are the easiest way to confirm the final deployed values and keep the mirrored values aligned
 
+For dbt specifically:
+
+- `RAW_DATASET_ID` is the shared raw source dataset
+- `STG_DATASET_ID`, `INT_DATASET_ID`, and `MART_DATASET_ID` are the Terraform-managed base model datasets
+- `profiles.yml` uses a target-specific anchor dataset for the BigQuery profile
+- local schema isolation comes from the shell `USER`
+- in cloud, dbt builds into the fixed Terraform-managed base datasets
+- locally, dbt builds into `<base_schema>_<user>`
+
 Sync helpers:
 
 - [`scripts/terraform_outputs_to_env.sh`](scripts/terraform_outputs_to_env.sh) prints mirrored local `.env` values from Terraform outputs
@@ -251,35 +260,21 @@ dbt build --project-dir dbt --profiles-dir dbt
 
 ## GitHub Actions Setup
 
-After Terraform creates the WIF provider and service accounts, use the Terraform outputs to configure the GitHub repository variables used by CI and deploy.
-
-Relevant outputs:
-
-- `project_id`
-- `region`
-- `raw_bucket_name`
-- `raw_dataset_id`
-- `artifact_registry_repository`
-- `ingestion_job_name`
-- `ingestion_image_name`
-- `dbt_job_name`
-- `dbt_image_name`
-- `github_actions_wif_provider_name`
-- `github_actions_ci_service_account_email`
-- `github_actions_deploy_service_account_email`
-
-To print the expected GitHub Actions values from Terraform outputs:
+After Terraform creates the WIF provider and service accounts, print the GitHub repository variables expected by CI and deploy:
 
 ```bash
 scripts/terraform_outputs_to_github_actions.sh
 ```
 
-Repository variables:
+Set the printed values as repository variables:
 
 - `GCP_PROJECT_ID`
 - `GCP_REGION`
 - `ARTIFACT_REGISTRY_REPOSITORY`
 - `RAW_DATASET_ID`
+- `STG_DATASET_ID`
+- `INT_DATASET_ID`
+- `MART_DATASET_ID`
 - `INGESTION_JOB_NAME`
 - `INGESTION_IMAGE_NAME`
 - `DBT_JOB_NAME`
@@ -303,4 +298,4 @@ After a successful run, verify:
 - If `raw_upload` fails, check `.env`, bucket name, GCP auth, and CSV headers.
 - If `make deploy-all` fails, confirm the Cloud Run jobs already exist. It is not a first-time bootstrap command.
 - If `make test-all` fails, confirm the virtual environment exists at `.venv` and dependencies are installed.
-- If dbt fails, check that raw tables exist first and that `GCP_PROJECT_ID`, `GCP_REGION`, and `RAW_DATASET_ID` are set correctly.
+- If dbt fails, check that raw tables exist first and that `GCP_PROJECT_ID`, `GCP_REGION`, `RAW_DATASET_ID`, `STG_DATASET_ID`, `INT_DATASET_ID`, `MART_DATASET_ID`, and, for local development, `USER` are set correctly.
