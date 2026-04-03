@@ -27,8 +27,8 @@ test-all:
 	.venv/bin/python -m pytest
 
 deploy-all:
-	docker buildx build --platform linux/amd64 -f cloud_run/ingestion/Dockerfile -t $(INGESTION_IMAGE_URI) --push .
-	docker buildx build --platform linux/amd64 -f cloud_run/dbt/Dockerfile -t $(DBT_IMAGE_URI) --push .
+	docker buildx build --platform linux/amd64 --provenance=false -f cloud_run/ingestion/Dockerfile -t $(INGESTION_IMAGE_URI) --push .
+	docker buildx build --platform linux/amd64 --provenance=false -f cloud_run/dbt/Dockerfile -t $(DBT_IMAGE_URI) --push .
 	gcloud run jobs update $(INGESTION_JOB_NAME) --project=$(GCP_PROJECT_ID) --region=$(GCP_REGION) --image=$(INGESTION_IMAGE_URI)
 	gcloud run jobs update $(DBT_JOB_NAME) --project=$(GCP_PROJECT_ID) --region=$(GCP_REGION) --image=$(DBT_IMAGE_URI)
 

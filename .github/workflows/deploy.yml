@@ -58,6 +58,7 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
+            --provenance=false \
             --file cloud_run/ingestion/Dockerfile \
             --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${INGESTION_IMAGE_NAME}:${IMAGE_TAG}" \
             --push \
@@ -67,6 +68,7 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
+            --provenance=false \
             --file cloud_run/dbt/Dockerfile \
             --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${DBT_IMAGE_NAME}:${IMAGE_TAG}" \
             --push \
