@@ -6,14 +6,19 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   test-and-validate:
     runs-on: ubuntu-latest
 
     env:
-      GCP_PROJECT_ID: ci-project
-      GCP_REGION: europe-west1
-      RAW_DATASET_ID: raw
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      RAW_DATASET_ID: ${{ vars.RAW_DATASET_ID }}
+      DBT_TARGET: ci
 
     steps:
       - name: Checkout repository
@@ -32,11 +37,43 @@ jobs:
       - name: Run Python unit tests
         run: pytest
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT_EMAIL }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Derive CI dataset names
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "DBT_CI_SCHEMA_SUFFIX=$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "STG_DATASET_ID=stg_ci_$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "INT_DATASET_ID=int_ci_$SHORT_SHA" >> "$GITHUB_ENV"
+          echo "MART_DATASET_ID=mart_ci_$SHORT_SHA" >> "$GITHUB_ENV"
+
       - name: Install dbt packages
         run: dbt deps --project-dir dbt --profiles-dir dbt
 
       - name: Parse dbt project
-        run: dbt parse --project-dir dbt --profiles-dir dbt
+        run: dbt parse --project-dir dbt --profiles-dir dbt --target "$DBT_TARGET"
+
+      - name: Create ephemeral BigQuery CI datasets
+        run: |
+          for dataset in "$STG_DATASET_ID" "$INT_DATASET_ID" "$MART_DATASET_ID"; do
+            if ! bq show --format=none "$GCP_PROJECT_ID:$dataset" >/dev/null 2>&1; then
+              bq mk --dataset --location="$GCP_REGION" "$GCP_PROJECT_ID:$dataset"
+            fi
+          done
+
+      - name: Build and test dbt project
+        run: dbt build --project-dir dbt --profiles-dir dbt --target "$DBT_TARGET"
 
       - name: Check Terraform formatting
         uses: hashicorp/setup-terraform@v3
@@ -45,3 +82,10 @@ jobs:
 
       - name: Terraform fmt
         run: terraform -chdir=terraform/root fmt -check -recursive
+
+      - name: Drop ephemeral BigQuery CI datasets
+        if: ${{ always() }}
+        run: |
+          for dataset in "$STG_DATASET_ID" "$INT_DATASET_ID" "$MART_DATASET_ID"; do
+            bq rm --dataset --force --recursive -q "$GCP_PROJECT_ID:$dataset" || true
+          done

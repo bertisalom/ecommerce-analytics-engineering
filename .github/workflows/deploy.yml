@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.ARTIFACT_REGISTRY_REPOSITORY }}
+      INGESTION_JOB_NAME: ${{ vars.INGESTION_JOB_NAME }}
+      INGESTION_IMAGE_NAME: ${{ vars.INGESTION_IMAGE_NAME }}
+      DBT_JOB_NAME: ${{ vars.DBT_JOB_NAME }}
+      DBT_IMAGE_NAME: ${{ vars.DBT_IMAGE_NAME }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT_EMAIL }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Derive image tags
+        run: |
+          echo "IMAGE_TAG=$GITHUB_SHA" >> "$GITHUB_ENV"
+
+      - name: Build and push ingestion image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --file cloud_run/ingestion/Dockerfile \
+            --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${INGESTION_IMAGE_NAME}:${IMAGE_TAG}" \
+            --push \
+            .
+
+      - name: Build and push dbt image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --file cloud_run/dbt/Dockerfile \
+            --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${DBT_IMAGE_NAME}:${IMAGE_TAG}" \
+            --push \
+            .
+
+      - name: Update ingestion Cloud Run job image
+        run: |
+          gcloud run jobs update "$INGESTION_JOB_NAME" \
+            --project="$GCP_PROJECT_ID" \
+            --region="$GCP_REGION" \
+            --image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${INGESTION_IMAGE_NAME}:${IMAGE_TAG}"
+
+      - name: Update dbt Cloud Run job image
+        run: |
+          gcloud run jobs update "$DBT_JOB_NAME" \
+            --project="$GCP_PROJECT_ID" \
+            --region="$GCP_REGION" \
+            --image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REGISTRY_REPOSITORY}/${DBT_IMAGE_NAME}:${IMAGE_TAG}"
